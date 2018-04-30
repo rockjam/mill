@@ -23,7 +23,7 @@ class TwirlWorker {
       case Some((sig, instance)) if sig == classloaderSig => instance
       case _ =>
         val cl = new URLClassLoader(twirlClasspath.map(_.toIO.toURI.toURL).toArray)
-        val twirlCompilerClass = cl.loadClass("play.japi.twirl.compiler.TwirlCompiler")
+        val twirlCompilerClass = cl.loadClass("play.twirl.compiler.TwirlCompiler")
         // Use the Java API (available in Twirl 1.3+)
         // Using reflection on a method with "Seq[String] = Nil" parameter type does not seem to work.
 
@@ -34,8 +34,16 @@ class TwirlWorker {
           classOf[java.io.File],
           classOf[java.io.File],
           classOf[java.lang.String],
-          classOf[util.Collection[java.lang.String]],
-          classOf[util.List[java.lang.String]])
+          cl.loadClass("scala.collection.Seq"),
+          cl.loadClass("scala.collection.Seq"),
+          cl.loadClass("scala.io.Codec"),
+          classOf[Boolean]
+        )
+
+        val defaultAdditionalImportsMethod = twirlCompilerClass.getMethod("compile$default$5")
+        val defaultConstructorAnnotationsMethod = twirlCompilerClass.getMethod("compile$default$6")
+        val defaultCodecMethod = twirlCompilerClass.getMethod("compile$default$7")
+        val defaultFlagMethod = twirlCompilerClass.getMethod("compile$default$8")
 
         val instance = new TwirlWorkerApi {
           override def compileTwirl(source: File,
@@ -48,8 +56,11 @@ class TwirlWorker {
               sourceDirectory,
               generatedDirectory,
               formatterType,
-              additionalImports.asJava,
-              constructorAnnotations.asJava)
+              defaultAdditionalImportsMethod.invoke(null),
+              defaultConstructorAnnotationsMethod.invoke(null),
+              defaultCodecMethod.invoke(null),
+              defaultFlagMethod.invoke(null)
+            )
           }
         }
         twirlInstanceCache = Some((classloaderSig, instance))
