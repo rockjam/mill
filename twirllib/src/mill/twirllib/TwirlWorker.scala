@@ -22,13 +22,12 @@ class TwirlWorker {
     twirlInstanceCache match {
       case Some((sig, instance)) if sig == classloaderSig => instance
       case _ =>
-        val cl = new URLClassLoader(twirlClasspath.map(_.toIO.toURI.toURL).toArray)
+        val cpWithoutScalaLib = twirlClasspath.filter { p =>
+          !p.toString.contains("scala-library")
+        }.map(_.toIO.toURI.toURL).toArray
+        val cl = new URLClassLoader(cpWithoutScalaLib, getClass.getClassLoader)
         val twirlCompilerClass = cl.loadClass("play.twirl.compiler.TwirlCompiler")
-        // Use the Java API (available in Twirl 1.3+)
-        // Using reflection on a method with "Seq[String] = Nil" parameter type does not seem to work.
 
-        // REMIND: Unable to call the compile method with a primitive boolean
-        // codec and inclusiveDot will not be available
         val compileMethod = twirlCompilerClass.getMethod("compile",
           classOf[java.io.File],
           classOf[java.io.File],
@@ -56,10 +55,10 @@ class TwirlWorker {
               sourceDirectory,
               generatedDirectory,
               formatterType,
-              defaultAdditionalImportsMethod.invoke(null),
-              defaultConstructorAnnotationsMethod.invoke(null),
-              defaultCodecMethod.invoke(null),
-              defaultFlagMethod.invoke(null)
+              additionalImports,
+              constructorAnnotations,
+              Codec("UTF-8"), // may provide as parameter too.
+              scala.Boolean.box(false)
             )
           }
         }
